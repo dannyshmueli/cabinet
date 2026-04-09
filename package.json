@@ -8,6 +8,8 @@
     "dev:terminal": "tsx server/terminal-server.ts",
     "dev:daemon": "tsx server/cabinet-daemon.ts",
     "dev:all": "npm run dev & npm run dev:daemon",
+    "promptopt:content-manager:case": "tsx scripts/prompt-optimization/run-content-manager-case.ts",
+    "promptopt:content-manager:gepa": "bash scripts/prompt-optimization/run-gepa-content-manager.sh",
     "debug:chrome": "bash scripts/launch-chrome-debug.sh",
     "build": "next build",
     "electron:prep": "node scripts/prepare-electron-package.mjs",

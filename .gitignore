@@ -40,6 +40,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+__pycache__/
+*.pyc
 
 # data: keep only the shipped template + guidance tracked
 data/**
@@ -53,6 +55,8 @@ data/**/.DS_Store
 
 # claude code
 .claude/
+.venv-promptopt/
 
 # stray build artifacts
 data/.agents/.library/.next/
+scripts/prompt-optimization/out/

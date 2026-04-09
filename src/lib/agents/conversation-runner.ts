@@ -98,6 +98,9 @@ export async function buildManualConversationPrompt(input: {
   agentSlug: string;
   userMessage: string;
   mentionedPaths?: string[];
+  personaOverride?: Partial<
+    Pick<AgentPersona, "body" | "name" | "provider" | "providerModel" | "workdir">
+  >;
 }): Promise<{
   prompt: string;
   title: string;
@@ -106,9 +109,16 @@ export async function buildManualConversationPrompt(input: {
   providerId: string;
   providerModel?: string;
 }> {
-  const persona = input.agentSlug === "general"
+  const storedPersona = input.agentSlug === "general"
     ? null
     : await readPersona(input.agentSlug);
+  const persona = storedPersona
+    ? {
+        ...storedPersona,
+        ...input.personaOverride,
+        body: input.personaOverride?.body ?? storedPersona.body,
+      }
+    : null;
   const mentionContext = await buildMentionContext(input.mentionedPaths || []);
   const cwd =
     persona?.workdir && persona.workdir !== "/data"
