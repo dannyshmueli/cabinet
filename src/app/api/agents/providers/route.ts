@@ -63,7 +63,7 @@ export async function PUT(req: Request) {
         ? body.disabledProviderIds.filter((value: unknown): value is string => typeof value === "string")
         : [],
       providerModels:
-        body.providerModels && typeof body.providerModels === "object"
+        body.providerModels && typeof body.providerModels === "object" && !Array.isArray(body.providerModels)
           ? Object.fromEntries(
               Object.entries(body.providerModels as Record<string, unknown>).flatMap(([providerId, value]) => {
                 if (typeof value !== "string") return [];

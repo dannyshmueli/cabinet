@@ -9,7 +9,8 @@ import {
   getProviderUsage,
   updateProviderSettingsWithMigrations,
 } from "./provider-management";
-import { writeProviderSettings } from "./provider-settings";
+import { readProviderSettings, writeProviderSettings } from "./provider-settings";
+import { PUT as updateProvidersRoute } from "../../app/api/agents/providers/route";
 
 const AGENTS_DIR = path.join(process.cwd(), "data", ".agents");
 
@@ -158,4 +159,49 @@ test("provider settings update migrates assigned personas and jobs before disabl
   assert.ok((usage["codex-cli"]?.totalCount || 0) >= baselineCodexTotal + 2);
   assert.ok((usage["codex-cli"]?.agentSlugs || []).includes(slug));
   assert.ok((usage["codex-cli"]?.jobs || []).some((job) => job.jobId === "job-migrate"));
+});
+
+test("providers route ignores array providerModels payloads", async (t) => {
+  const providersPath = path.join(process.cwd(), "data", ".agents", ".config", "providers.json");
+  const originalSettings = await fs.readFile(providersPath, "utf8").catch(() => null);
+
+  t.after(async () => {
+    if (originalSettings === null) {
+      await fs.rm(providersPath, { force: true });
+      return;
+    }
+    await fs.writeFile(providersPath, originalSettings, "utf8");
+  });
+
+  await writeProviderSettings({
+    defaultProvider: "claude-code",
+    disabledProviderIds: [],
+    providerModels: {
+      "claude-code": "baseline-model",
+    },
+  });
+
+  const response = await updateProvidersRoute(
+    new Request("http://localhost/api/agents/providers", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        defaultProvider: "claude-code",
+        disabledProviderIds: [],
+        providerModels: ["bad-array-value"],
+        migrations: [],
+      }),
+    })
+  );
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.deepEqual(payload.settings.providerModels, {
+    "claude-code": "baseline-model",
+  });
+
+  const persisted = await readProviderSettings();
+  assert.deepEqual(persisted.providerModels, {
+    "claude-code": "baseline-model",
+  });
 });
