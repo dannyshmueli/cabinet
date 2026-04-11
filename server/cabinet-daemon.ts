@@ -332,7 +332,7 @@ function createShellDetachedSession(input: {
   onData?: (chunk: string) => void;
 }): PtySession {
   const cwd = resolveSessionCwd(input.cwd);
-  const shell = process.env.SHELL || "/bin/zsh";
+  const shell = process.env.SHELL || "/bin/sh";
   const term = pty.spawn(shell, [], {
     name: "xterm-256color",
     cols: 240,
