@@ -15,6 +15,7 @@ import {
   resolveProviderOrThrow,
   runOneShotProviderPrompt,
 } from "./provider-runtime";
+import { DATA_DIR } from "../storage/path-utils";
 
 function getExampleAgentPath(): string {
   return path.join(
@@ -283,7 +284,8 @@ test("createProviderSession allows writes anywhere under allowedRoots even when 
   const provider = createFsAcpTestProvider("test-fs-expanded-roots");
   registerTestProvider(provider, t, previousDefaultProvider);
 
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cabinet-acp-roots-"));
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  const tempRoot = await fs.mkdtemp(path.join(DATA_DIR, ".test-acp-roots-"));
   const allowedRoot = path.join(tempRoot, "workspace");
   const cwd = path.join(allowedRoot, "marketing");
   const targetPath = path.join(allowedRoot, "sales", "note.md");

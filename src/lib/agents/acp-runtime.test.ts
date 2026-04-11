@@ -2,8 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import type { AgentProvider } from "./provider-interface";
-import { checkAcpProviderHealth, normalizeAcpSessionModelMetadata } from "./acp-runtime";
+import {
+  checkAcpProviderHealth,
+  normalizeAcpSessionModelMetadata,
+  normalizeAllowedRoots,
+} from "./acp-runtime";
 import type * as schema from "@agentclientprotocol/sdk/dist/schema/types.gen";
+import { DATA_DIR } from "../storage/path-utils";
 
 test("normalizeAcpSessionModelMetadata prefers stable configOptions over unstable models", () => {
   const configOptions = [
@@ -83,6 +88,30 @@ test("normalizeAcpSessionModelMetadata falls back to unstable models when config
     ],
     source: "models",
   });
+});
+
+test("normalizeAllowedRoots drops roots outside Cabinet data", () => {
+  const dataRoot = path.resolve(DATA_DIR);
+  const cwd = path.join(dataRoot, "team");
+  const outsideSibling = path.join(path.dirname(dataRoot), `${path.basename(dataRoot)}-outside`);
+
+  const roots = normalizeAllowedRoots(cwd, [
+    path.join(cwd, "nested"),
+    outsideSibling,
+  ]);
+
+  assert.deepEqual(roots, [cwd]);
+});
+
+test("normalizeAllowedRoots intersects ancestor roots to Cabinet data root", () => {
+  const dataRoot = path.resolve(DATA_DIR);
+  const repoRoot = path.dirname(dataRoot);
+
+  const roots = normalizeAllowedRoots(repoRoot, [
+    path.join(dataRoot, "nested"),
+  ]);
+
+  assert.deepEqual(roots, [dataRoot]);
 });
 
 test("checkAcpProviderHealth reports unauthenticated when initialize succeeds but newSession requires auth", async () => {

@@ -11,6 +11,7 @@ import {
 import type * as schema from "@agentclientprotocol/sdk/dist/schema/types.gen";
 import type { AgentProvider, ProviderStatus } from "./provider-interface";
 import { resolveCliCommand, RUNTIME_PATH } from "./provider-cli";
+import { DATA_DIR } from "../storage/path-utils";
 
 interface LocalTerminal {
   id: string;
@@ -71,10 +72,30 @@ export interface AcpSessionModelMetadata {
   source: "configOptions" | "models";
 }
 
-function normalizeAllowedRoots(cwd: string, allowedRoots?: string[]): string[] {
+function pathContainsPath(parentPath: string, childPath: string): boolean {
+  const relative = path.relative(parentPath, childPath);
+  return relative === "" || (!!relative && !relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function constrainRootToDataDir(root: string): string | null {
+  const dataRoot = path.resolve(DATA_DIR);
+  const resolved = path.resolve(root);
+
+  if (pathContainsPath(dataRoot, resolved)) {
+    return resolved;
+  }
+
+  if (pathContainsPath(resolved, dataRoot)) {
+    return dataRoot;
+  }
+
+  return null;
+}
+
+export function normalizeAllowedRoots(cwd: string, allowedRoots?: string[]): string[] {
   const candidates = [cwd, ...(allowedRoots || [])]
-    .map((root) => path.resolve(root))
-    .filter(Boolean)
+    .map((root) => constrainRootToDataDir(root))
+    .filter((root): root is string => !!root)
     .sort((a, b) => a.length - b.length);
 
   const roots: string[] = [];
