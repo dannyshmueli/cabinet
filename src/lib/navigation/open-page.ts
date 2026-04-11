@@ -8,13 +8,18 @@ interface OpenKnowledgeBasePageOptions {
   loadPage: (path: string) => Promise<void> | void;
 }
 
+export interface OpenKnowledgeBasePageResult {
+  pagePath: string;
+  loaded: Promise<void>;
+}
+
 export function openKnowledgeBasePage({
   rawPath,
   expandPath,
   selectPage,
   setPageSection,
   loadPage,
-}: OpenKnowledgeBasePageOptions): string {
+}: OpenKnowledgeBasePageOptions): OpenKnowledgeBasePageResult {
   const pagePath = canonicalizeVirtualPagePath(rawPath);
   const parts = pagePath.split("/");
 
@@ -24,7 +29,9 @@ export function openKnowledgeBasePage({
 
   selectPage(pagePath);
   setPageSection();
-  void loadPage(pagePath);
 
-  return pagePath;
+  return {
+    pagePath,
+    loaded: Promise.resolve(loadPage(pagePath)),
+  };
 }

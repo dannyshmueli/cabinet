@@ -142,12 +142,15 @@ export function JobsManager() {
   const loadPage = useEditorStore((state) => state.loadPage);
 
   function openArtifactPage(rawPath: string) {
-    openKnowledgeBasePage({
+    const { loaded } = openKnowledgeBasePage({
       rawPath,
       expandPath,
       selectPage,
       setPageSection: () => setSection({ type: "page" }),
       loadPage,
+    });
+    loaded.catch((error) => {
+      console.error("Failed to load artifact page:", error);
     });
   }
 
