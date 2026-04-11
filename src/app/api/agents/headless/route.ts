@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import { DATA_DIR } from "@/lib/storage/path-utils";
+import { resolveDataWorkdir } from "@/lib/storage/path-utils";
 import { runOneShotProviderPrompt } from "@/lib/agents/provider-runtime";
 
 export async function POST(req: NextRequest) {
@@ -14,7 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cwd = workdir ? path.join(DATA_DIR, workdir) : DATA_DIR;
+    const cwd = resolveDataWorkdir(workdir);
 
     const result = await runOneShotProviderPrompt({
       providerId,

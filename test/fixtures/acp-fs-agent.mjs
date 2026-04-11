@@ -40,23 +40,36 @@ class FsAgent {
       .join("\n");
 
     const match = text.match(/^WRITE\s+(\S+)\n([\s\S]*)$/);
-    if (!match) {
-      throw new Error("Expected prompt format: WRITE <absolute-path>\\n<content>");
+    const readMatch = text.match(/^READ\s+(\S+)$/);
+    if (!match && !readMatch) {
+      throw new Error("Expected prompt format: WRITE <absolute-path>\\n<content> or READ <absolute-path>");
     }
 
-    const [, filePath, content] = match;
-    await this.connection.writeTextFile({
-      sessionId: params.sessionId,
-      path: filePath,
-      content,
-    });
+    const filePath = match?.[1] || readMatch[1];
+    let message = "";
+    if (match) {
+      const [, , content] = match;
+      await this.connection.writeTextFile({
+        sessionId: params.sessionId,
+        path: filePath,
+        content,
+      });
+      message = `Wrote ${filePath}`;
+    } else {
+      const response = await this.connection.readTextFile({
+        sessionId: params.sessionId,
+        path: filePath,
+      });
+      message = response.content;
+    }
+
     await this.connection.sessionUpdate({
       sessionId: params.sessionId,
       update: {
         sessionUpdate: "agent_message_chunk",
         content: {
           type: "text",
-          text: `Wrote ${filePath}`,
+          text: message,
         },
       },
     });

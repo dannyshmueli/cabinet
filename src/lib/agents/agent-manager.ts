@@ -1,6 +1,5 @@
 import { spawn } from "child_process";
-import path from "path";
-import { DATA_DIR } from "@/lib/storage/path-utils";
+import { DATA_DIR, resolveDataWorkdir } from "@/lib/storage/path-utils";
 import {
   startOneShotProviderPrompt,
   type ProviderPromptRun,
@@ -90,7 +89,7 @@ export async function runAgent(
     output: "",
   };
 
-  const cwd = workdir ? path.join(DATA_DIR, workdir) : DATA_DIR;
+  const cwd = resolveDataWorkdir(workdir);
   const run = startAgentRun({
     providerId,
     prompt,

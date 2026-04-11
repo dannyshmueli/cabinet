@@ -198,7 +198,7 @@ test("getInteractiveProviderLaunchSpec uses provider-specific interactive CLI se
   });
 
   assert.equal(launch.providerId, provider.id);
-  assert.equal(launch.command, scriptPath);
+  assert.equal(launch.command, await fs.realpath(scriptPath));
   assert.deepEqual(launch.args, ["--cwd", process.cwd()]);
 });
 
@@ -306,6 +306,84 @@ test("createProviderSession allows writes anywhere under allowedRoots even when 
 
   assert.equal(result.stopReason, "end_turn");
   assert.equal(await fs.readFile(targetPath, "utf8"), "shared workspace");
+});
+
+test("createProviderSession rejects writes through symlinks outside allowedRoots", async (t) => {
+  const previousDefaultProvider = providerRegistry.defaultProvider;
+  const provider = createFsAcpTestProvider("test-fs-write-symlink");
+  registerTestProvider(provider, t, previousDefaultProvider);
+
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  const tempRoot = await fs.mkdtemp(path.join(DATA_DIR, ".test-acp-symlink-"));
+  const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cabinet-acp-outside-"));
+  const allowedRoot = path.join(tempRoot, "workspace");
+  const symlinkPath = path.join(allowedRoot, "escape");
+  const targetPath = path.join(symlinkPath, "note.md");
+  await fs.mkdir(allowedRoot, { recursive: true });
+  await fs.symlink(outsideRoot, symlinkPath, "dir");
+
+  const session = await createProviderSession({
+    providerId: provider.id,
+    cwd: allowedRoot,
+    allowedRoots: [allowedRoot],
+  });
+
+  t.after(async () => {
+    await session.close();
+    await fs.rm(tempRoot, { recursive: true, force: true });
+    await fs.rm(outsideRoot, { recursive: true, force: true });
+  });
+
+  await assert.rejects(session.prompt(`WRITE ${targetPath}\nescaped`), (error: unknown) => {
+    assert.equal(error instanceof Error, true);
+    const details =
+      typeof error === "object" && error !== null && "data" in error
+        ? Reflect.get(error.data as object, "details")
+        : undefined;
+    assert.match(String(details), /outside the allowed workspace/);
+    return true;
+  });
+  await assert.rejects(fs.readFile(path.join(outsideRoot, "note.md"), "utf8"), {
+    code: "ENOENT",
+  });
+});
+
+test("createProviderSession rejects reads through symlinks outside allowedRoots", async (t) => {
+  const previousDefaultProvider = providerRegistry.defaultProvider;
+  const provider = createFsAcpTestProvider("test-fs-read-symlink");
+  registerTestProvider(provider, t, previousDefaultProvider);
+
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  const tempRoot = await fs.mkdtemp(path.join(DATA_DIR, ".test-acp-symlink-"));
+  const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), "cabinet-acp-outside-"));
+  const allowedRoot = path.join(tempRoot, "workspace");
+  const symlinkPath = path.join(allowedRoot, "escape");
+  const targetPath = path.join(symlinkPath, "secret.md");
+  await fs.mkdir(allowedRoot, { recursive: true });
+  await fs.writeFile(path.join(outsideRoot, "secret.md"), "classified", "utf8");
+  await fs.symlink(outsideRoot, symlinkPath, "dir");
+
+  const session = await createProviderSession({
+    providerId: provider.id,
+    cwd: allowedRoot,
+    allowedRoots: [allowedRoot],
+  });
+
+  t.after(async () => {
+    await session.close();
+    await fs.rm(tempRoot, { recursive: true, force: true });
+    await fs.rm(outsideRoot, { recursive: true, force: true });
+  });
+
+  await assert.rejects(session.prompt(`READ ${targetPath}`), (error: unknown) => {
+    assert.equal(error instanceof Error, true);
+    const details =
+      typeof error === "object" && error !== null && "data" in error
+        ? Reflect.get(error.data as object, "details")
+        : undefined;
+    assert.match(String(details), /outside the allowed workspace/);
+    return true;
+  });
 });
 
 test("probeProviderSessionOptions returns model options for bundled ACP providers", async () => {

@@ -40,8 +40,44 @@ test("resolveCliCommand prefers an existing command candidate path", async () =>
     },
   };
 
-  assert.equal(resolveCliCommand(provider), scriptPath);
+  assert.equal(resolveCliCommand(provider), await fs.realpath(scriptPath));
 });
+
+test("resolveCliCommand resolves command candidate symlinks to their real path", async (t) => {
+  const scriptPath = await createExecutableScript("#!/bin/sh\nexit 0\n");
+  const linkPath = path.join(path.dirname(scriptPath), "fake-provider-link.sh");
+  await fs.symlink(scriptPath, linkPath);
+  t.after(async () => {
+    await fs.rm(path.dirname(scriptPath), { recursive: true, force: true });
+  });
+
+  const provider: AgentProvider = {
+    id: "test-cli-provider-symlink",
+    name: "Test CLI Provider Symlink",
+    type: "cli",
+    runtime: "acp",
+    adapterKind: "adapter",
+    icon: "bot",
+    command: "missing-cli-provider",
+    commandCandidates: [linkPath, "missing-cli-provider"],
+    commandArgs: [],
+    async isAvailable() {
+      return true;
+    },
+    async healthCheck() {
+      return {
+        available: true,
+        authenticated: true,
+        version: "test",
+        runtime: "acp",
+        adapterKind: "adapter",
+      };
+    },
+  };
+
+  assert.equal(resolveCliCommand(provider), await fs.realpath(scriptPath));
+});
+
 
 test("checkCliProviderAvailable uses resolved command candidates", async () => {
   const scriptPath = await createExecutableScript("#!/bin/sh\nexit 0\n");

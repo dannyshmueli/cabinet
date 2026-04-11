@@ -141,15 +141,91 @@ function normalizeTerminalExitStatus(code: number | null, signal: NodeJS.Signals
   };
 }
 
-function assertAllowedPath(filePath: string, allowedRoots: string[]): void {
-  const resolved = path.resolve(filePath);
-  if (!path.isAbsolute(resolved)) {
+function getErrorCode(error: unknown): string | undefined {
+  return typeof error === "object" && error !== null && "code" in error
+    ? String(Reflect.get(error, "code"))
+    : undefined;
+}
+
+async function canonicalizeAllowedRoots(allowedRoots: string[]): Promise<string[]> {
+  const dataRoot = await fs.realpath(DATA_DIR);
+  const roots: string[] = [];
+
+  for (const root of allowedRoots) {
+    try {
+      const canonicalRoot = await fs.realpath(root);
+      if (!pathContainsPath(dataRoot, canonicalRoot)) {
+        continue;
+      }
+      if (roots.some((existing) => pathContainsPath(existing, canonicalRoot))) {
+        continue;
+      }
+      roots.push(canonicalRoot);
+    } catch {
+      // Non-existent roots cannot safely authorize real filesystem paths.
+    }
+  }
+
+  return roots;
+}
+
+async function assertCanonicalAllowedPath(
+  canonicalPath: string,
+  allowedRoots: string[]
+): Promise<void> {
+  const canonicalRoots = await canonicalizeAllowedRoots(allowedRoots);
+  if (!canonicalRoots.some((root) => pathContainsPath(root, canonicalPath))) {
+    throw new Error(`ACP path is outside the allowed workspace: ${canonicalPath}`);
+  }
+}
+
+async function realpathNearestExistingParent(filePath: string): Promise<string> {
+  let current = path.dirname(filePath);
+
+  while (true) {
+    try {
+      return await fs.realpath(current);
+    } catch (error) {
+      if (getErrorCode(error) !== "ENOENT") {
+        throw error;
+      }
+
+      const parent = path.dirname(current);
+      if (parent === current) {
+        throw error;
+      }
+      current = parent;
+    }
+  }
+}
+
+async function assertAllowedExistingPath(filePath: string, allowedRoots: string[]): Promise<string> {
+  if (!path.isAbsolute(filePath)) {
     throw new Error(`ACP filesystem path must be absolute: ${filePath}`);
   }
 
-  if (!allowedRoots.some((root) => resolved === root || resolved.startsWith(`${root}${path.sep}`))) {
-    throw new Error(`ACP path is outside the allowed workspace: ${resolved}`);
+  const canonicalPath = await fs.realpath(filePath);
+  await assertCanonicalAllowedPath(canonicalPath, allowedRoots);
+  return canonicalPath;
+}
+
+async function assertAllowedWritePath(filePath: string, allowedRoots: string[]): Promise<string> {
+  if (!path.isAbsolute(filePath)) {
+    throw new Error(`ACP filesystem path must be absolute: ${filePath}`);
   }
+
+  const resolved = path.resolve(filePath);
+  try {
+    await assertAllowedExistingPath(resolved, allowedRoots);
+  } catch (error) {
+    if (getErrorCode(error) !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const canonicalParent = await realpathNearestExistingParent(resolved);
+  await assertCanonicalAllowedPath(canonicalParent, allowedRoots);
+  return resolved;
 }
 
 function buildClientHandlers(input: {
@@ -182,8 +258,8 @@ function buildClientHandlers(input: {
         await input.onSessionUpdate?.(params);
       },
       async readTextFile(params: schema.ReadTextFileRequest): Promise<schema.ReadTextFileResponse> {
-        assertAllowedPath(params.path, input.allowedRoots);
-        const raw = await fs.readFile(params.path, "utf8");
+        const filePath = await assertAllowedExistingPath(params.path, input.allowedRoots);
+        const raw = await fs.readFile(filePath, "utf8");
         if (!params.line && !params.limit) {
           return { content: raw };
         }
@@ -200,9 +276,9 @@ function buildClientHandlers(input: {
         };
       },
       async writeTextFile(params: schema.WriteTextFileRequest): Promise<schema.WriteTextFileResponse> {
-        assertAllowedPath(params.path, input.allowedRoots);
-        await fs.mkdir(path.dirname(params.path), { recursive: true });
-        await fs.writeFile(params.path, params.content, "utf8");
+        const filePath = await assertAllowedWritePath(params.path, input.allowedRoots);
+        await fs.mkdir(path.dirname(filePath), { recursive: true });
+        await fs.writeFile(filePath, params.content, "utf8");
         return {};
       },
       async createTerminal(params: schema.CreateTerminalRequest): Promise<schema.CreateTerminalResponse> {
@@ -213,7 +289,7 @@ function buildClientHandlers(input: {
             : input.allowedRoots[0];
 
         if (cwd) {
-          assertAllowedPath(cwd, input.allowedRoots);
+          await assertAllowedExistingPath(cwd, input.allowedRoots);
         }
 
         const env = {
@@ -440,14 +516,26 @@ async function spawnAcpConnection(
   cleanup: () => Promise<void>;
 }> {
   const command = resolveCliCommand(provider);
+  const env = getProviderEnv();
   const proc = spawn(command, provider.commandArgs || [], {
     cwd: input.cwd,
-    env: getProviderEnv(),
+    env,
     stdio: ["pipe", "pipe", "pipe"],
   }) as ChildProcessWithoutNullStreams;
 
   let settled = false;
   let stderr = "";
+  const spawnError = new Promise<never>((_, reject) => {
+    proc.once("error", (error) => {
+      reject(
+        new Error(
+          provider.installMessage
+            ? `${provider.installMessage} (${error.message})`
+            : `Failed to spawn ${command}: ${error.message}`
+        )
+      );
+    });
+  });
   proc.stderr.on("data", (chunk: Buffer) => {
     const text = chunk.toString();
     stderr += text;
@@ -465,22 +553,25 @@ async function spawnAcpConnection(
   const connection = new ClientSideConnection(() => client, stream);
 
   try {
-    const init = await connection.initialize({
-      protocolVersion: PROTOCOL_VERSION,
-      clientInfo: {
-        name: "cabinet",
-        title: "Cabinet",
-        version: "0.2.4",
-      },
-      clientCapabilities: {
-        auth: { terminal: true },
-        fs: {
-          readTextFile: true,
-          writeTextFile: true,
+    const init = await Promise.race([
+      connection.initialize({
+        protocolVersion: PROTOCOL_VERSION,
+        clientInfo: {
+          name: "cabinet",
+          title: "Cabinet",
+          version: "0.2.4",
         },
-        terminal: true,
-      },
-    });
+        clientCapabilities: {
+          auth: { terminal: true },
+          fs: {
+            readTextFile: true,
+            writeTextFile: true,
+          },
+          terminal: true,
+        },
+      }),
+      spawnError,
+    ]);
 
     const cleanup = async () => {
       if (settled) return;

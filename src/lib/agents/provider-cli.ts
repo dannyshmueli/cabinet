@@ -7,7 +7,7 @@ export const RUNTIME_PATH = [
   path.join(process.cwd(), "node_modules", ".bin"),
   `${process.env.HOME || ""}/.local/bin`,
   process.env.PATH || "",
-].filter(Boolean).join(":");
+].filter(Boolean).join(path.delimiter);
 
 export function resolveCliCommand(provider: AgentProvider): string {
   const candidates = [
@@ -17,7 +17,11 @@ export function resolveCliCommand(provider: AgentProvider): string {
 
   for (const candidate of candidates) {
     if (candidate.includes("/") && fs.existsSync(candidate)) {
-      return candidate;
+      try {
+        return fs.realpathSync(candidate);
+      } catch {
+        return candidate;
+      }
     }
   }
 
@@ -31,7 +35,11 @@ export function resolveCliCommand(provider: AgentProvider): string {
       }).trim();
 
       if (resolved) {
-        return resolved;
+        try {
+          return fs.realpathSync(resolved);
+        } catch {
+          return resolved;
+        }
       }
     } catch {
       // Ignore and keep trying.

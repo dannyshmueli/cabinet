@@ -20,6 +20,26 @@ export function resolveContentPath(virtualPath: string): string {
   return resolved;
 }
 
+export function resolveDataWorkdir(workdir?: string): string {
+  const dataRoot = path.resolve(DATA_DIR);
+  const trimmed = workdir?.trim();
+  if (!trimmed || trimmed === "/data") {
+    return dataRoot;
+  }
+
+  const resolved = trimmed.startsWith("/data/")
+    ? path.resolve(dataRoot, trimmed.slice("/data/".length))
+    : path.isAbsolute(trimmed)
+      ? path.resolve(trimmed)
+      : path.resolve(dataRoot, trimmed);
+
+  if (resolved !== dataRoot && !resolved.startsWith(`${dataRoot}${path.sep}`)) {
+    throw new Error(`Workdir must stay inside Cabinet data directory: ${trimmed}`);
+  }
+
+  return resolved;
+}
+
 export function virtualPathFromFs(fsPath: string): string {
   return fsPath.replace(DATA_DIR, "").replace(/^\//, "");
 }

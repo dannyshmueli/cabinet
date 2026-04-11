@@ -1,5 +1,5 @@
 import path from "path";
-import { DATA_DIR } from "@/lib/storage/path-utils";
+import { DATA_DIR, resolveDataWorkdir } from "@/lib/storage/path-utils";
 import {
   readPersona,
   readMemory,
@@ -143,7 +143,7 @@ Use real values, keep each field on a single line, repeat ARTIFACT once per KB f
 
 Now execute your heartbeat. Check your focus areas, process inbox, review goals, and take action.`;
 
-  const cwd = persona.workdir === "/data" ? DATA_DIR : path.join(DATA_DIR, persona.workdir);
+  const cwd = resolveDataWorkdir(persona.workdir);
   return { prompt, persona, inbox, cwd, startTime };
 }
 

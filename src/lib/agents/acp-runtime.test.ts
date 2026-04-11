@@ -139,3 +139,31 @@ test("checkAcpProviderHealth reports unauthenticated when initialize succeeds bu
   assert.equal(status.authenticated, false);
   assert.match(status.error || "", /requires authentication/i);
 });
+
+test("checkAcpProviderHealth reports spawn failures without uncaught process errors", async () => {
+  const missingCommand = path.join(process.cwd(), "node_modules", ".bin", "missing-acp-adapter");
+  const provider: AgentProvider = {
+    id: "test-missing-acp-provider",
+    name: "Missing ACP Test Provider",
+    type: "cli",
+    runtime: "acp",
+    adapterKind: "adapter",
+    icon: "bot",
+    installMessage: "Install the missing ACP adapter",
+    command: missingCommand,
+    commandCandidates: [missingCommand],
+    async isAvailable() {
+      return true;
+    },
+    async healthCheck() {
+      throw new Error("unused");
+    },
+  };
+
+  const status = await checkAcpProviderHealth(provider);
+
+  assert.equal(status.available, false);
+  assert.equal(status.authenticated, false);
+  assert.match(status.error || "", /Install the missing ACP adapter/);
+  assert.match(status.error || "", /ENOENT/);
+});

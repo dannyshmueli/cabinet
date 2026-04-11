@@ -1,7 +1,7 @@
 import type { JobConfig, JobRun, JobPostAction } from "@/types/jobs";
 import type { ConversationMeta } from "@/types/conversations";
 import { readPage } from "../storage/page-io";
-import { DATA_DIR } from "../storage/path-utils";
+import { DATA_DIR, resolveDataWorkdir } from "../storage/path-utils";
 import {
   appendConversationTranscript,
   createConversation,
@@ -110,10 +110,7 @@ export async function buildManualConversationPrompt(input: {
     ? null
     : await readPersona(input.agentSlug);
   const mentionContext = await buildMentionContext(input.mentionedPaths || []);
-  const cwd =
-    persona?.workdir && persona.workdir !== "/data"
-      ? `${DATA_DIR}/${persona.workdir.replace(/^\/+/, "")}`
-      : DATA_DIR;
+  const cwd = resolveDataWorkdir(persona?.workdir);
 
   const prompt = [
     buildAgentContextHeader(persona, input.agentSlug),
@@ -153,10 +150,7 @@ export async function buildEditorConversationPrompt(input: {
     new Set([input.pagePath, ...(input.mentionedPaths || [])])
   );
   const mentionContext = await buildMentionContext(combinedMentionedPaths);
-  const cwd =
-    persona?.workdir && persona.workdir !== "/data"
-      ? `${DATA_DIR}/${persona.workdir.replace(/^\/+/, "")}`
-      : DATA_DIR;
+  const cwd = resolveDataWorkdir(persona?.workdir);
 
   const prompt = [
     buildAgentContextHeader(persona, "editor"),
@@ -329,12 +323,7 @@ async function processPostActions(
 export async function startJobConversation(job: JobConfig): Promise<JobRun> {
   const persona = job.agentSlug ? await readPersona(job.agentSlug) : null;
   const jobPrompt = substituteTemplateVars(job.prompt, job);
-  const cwd =
-    job.workdir && job.workdir !== "/data"
-      ? `${DATA_DIR}/${job.workdir.replace(/^\/+/, "")}`
-      : persona?.workdir && persona.workdir !== "/data"
-        ? `${DATA_DIR}/${persona.workdir.replace(/^\/+/, "")}`
-        : DATA_DIR;
+  const cwd = resolveDataWorkdir(job.workdir || persona?.workdir);
 
   const prompt = [
     buildAgentContextHeader(persona, job.agentSlug || "agent"),
