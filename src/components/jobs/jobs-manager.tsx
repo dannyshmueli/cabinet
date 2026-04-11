@@ -418,7 +418,10 @@ export function JobsManager() {
   return (
     <div className="flex h-full overflow-hidden">
       <div className="flex w-[230px] min-w-[230px] flex-col border-r border-border">
-        <div className="border-b border-border px-4 py-3">
+        <div
+          className="border-b border-border px-4 py-3 transition-[padding] duration-200"
+          style={{ paddingLeft: `calc(1rem + var(--sidebar-toggle-offset, 0px))` }}
+        >
           <div className="flex items-center justify-between gap-3">
             <div>
               <h2 className="text-[15px] font-semibold tracking-[-0.02em]">Jobs</h2>

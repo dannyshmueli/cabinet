@@ -2,6 +2,7 @@
 
 import { ExternalLink, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HeaderActions } from "@/components/layout/header-actions";
 
 interface WebsiteViewerProps {
   path: string;
@@ -16,7 +17,10 @@ export function WebsiteViewer({ path, title, fullscreen, onExit }: WebsiteViewer
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-2 bg-background/80 backdrop-blur-sm">
+      <div
+        className="flex items-center justify-between border-b border-border px-4 py-2 bg-background/80 backdrop-blur-sm transition-[padding] duration-200"
+        style={{ paddingLeft: `calc(1rem + var(--sidebar-toggle-offset, 0px))` }}
+      >
         <div className="flex items-center gap-2">
           {fullscreen && onExit && (
             <Button
@@ -26,7 +30,7 @@ export function WebsiteViewer({ path, title, fullscreen, onExit }: WebsiteViewer
               onClick={onExit}
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to KB
+              Back
             </Button>
           )}
           <span className="text-[13px] font-medium">{title}</span>
@@ -44,6 +48,7 @@ export function WebsiteViewer({ path, title, fullscreen, onExit }: WebsiteViewer
             <ExternalLink className="h-3.5 w-3.5" />
             Open in new tab
           </Button>
+          <HeaderActions />
         </div>
       </div>
 

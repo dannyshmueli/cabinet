@@ -60,17 +60,37 @@ To make it a **full-screen app** (sidebar + AI panel auto-collapse on click):
 
 Without `.app`, the directory renders as a regular embedded website with the sidebar visible.
 
-## Linked Repositories (`.repo.yaml`)
+## Linked Directories and Symlinks
 
-Directories can be linked to Git repositories using a `.repo.yaml` config file. This tells AI agents where to find the codebase associated with a KB section, enabling them to read, search, and understand the code in context.
+External folders are linked into the KB as **direct symlinks**. When a user runs "Load Knowledge", Cabinet creates:
+
+```
+data/my-project -> /Users/me/Projects/my-project   (symlink)
+```
+
+The symlinked folder's contents appear as direct children in the tree — no wrapper directory.
+
+Cabinet writes two hidden dotfiles into the **target directory**:
+
+### `.cabinet.yaml` (all linked dirs)
+Display metadata for the KB. Hidden from the sidebar by `isHiddenEntry`.
 
 ```yaml
-# .repo.yaml — links this KB directory to a Git repository
-name: gpu-emulator                        # Display name
-local: /path/to/local/clone  # Absolute path to local clone
-remote: https://github.com/org/repo  # GitHub repo URL (optional)
-source: both                              # local | remote | both
-branch: main                              # Default branch to reference
+title: My Project
+tags:
+  - knowledge
+created: '2026-04-11T00:00:00.000Z'
+```
+
+### `.repo.yaml` (git repos only)
+Links the directory to a Git repository. Tells agents where to find the codebase.
+
+```yaml
+name: gpu-emulator
+local: /path/to/local/clone
+remote: https://github.com/org/repo
+source: both
+branch: main
 description: GPU Visual Emulator — interactive GPU architecture visualization
 ```
 
@@ -78,10 +98,7 @@ description: GPU Visual Emulator — interactive GPU architecture visualization
 - `name` — Human-readable project name
 - `local` — Absolute path to local clone on disk. Agents can read/search files here.
 - `remote` — GitHub repo URL. Agents can link to it, fetch issues, PRs, etc.
-- `source` — Where to look for code:
-  - `local` — Only the local clone (no remote)
-  - `remote` — Only the GitHub URL (no local clone available)
-  - `both` — Local clone exists and is synced with remote
+- `source` — Where to look for code: `local`, `remote`, or `both`
 - `branch` — Default branch name (for linking and agent context)
 - `description` — What this repo contains (helps agents understand context)
 
@@ -95,11 +112,11 @@ When an agent is working on a KB page that has a `.repo.yaml` in the same direct
 **Example structure:**
 ```
 /data/
+  my-project -> /external/path    ← direct symlink (has .cabinet.yaml + .repo.yaml inside)
   gpu-emulator/
-    index.html          ← the app (copied from repo)
+    index.html          ← the app
     .app                ← full-screen mode
     .repo.yaml          ← links to source repo
-    PRD - GPU Visual Emulator.md
   product/
     .repo.yaml          ← links to the main cabinet repo itself
 ```

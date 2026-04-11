@@ -50,7 +50,7 @@ Click the markdown icon in the toolbar (or use the keyboard shortcut) to switch 
 - Fine-tune formatting that the WYSIWYG doesn't expose
 - Copy raw markdown to use elsewhere
 - Debug weird formatting issues
-- Feel like a proper wizard writing spells by hand
+- Feel like a proper hacker writing code by hand
 
 The toggle is lossless — switching back and forth won't eat your content.
 
@@ -85,7 +85,7 @@ The save indicator in the toolbar shows you the current state:
 
 ## Try It
 
-Open [[Operations]] and try editing — add bold text, insert a table, or use `/heading` to add a new section. Everything auto-saves, and you can always undo with `Cmd+Z` or restore from [[Version History]] if things go sideways.
+Open any page and try editing — add bold text, insert a table, or use `/heading` to add a new section. Everything auto-saves, and you can always undo with `Cmd+Z` or restore from [[Version History]] if things go sideways.
 
 ---
 

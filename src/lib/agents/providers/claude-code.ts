@@ -1,10 +1,16 @@
 import type { AgentProvider, ProviderStatus } from "../provider-interface";
 import { checkCliProviderAvailable } from "../provider-cli";
 import { checkAcpProviderHealth } from "../acp-runtime";
+import { getNvmNodeBin } from "../nvm-path";
+
+const nvmClaudePath = (() => {
+  const bin = getNvmNodeBin();
+  return bin ? `${bin}/claude` : null;
+})();
 
 export const claudeCodeProvider: AgentProvider = {
   id: "claude-code",
-  name: "Claude Code Max",
+  name: "Claude Code",
   type: "cli",
   runtime: "acp",
   adapterKind: "adapter",
@@ -40,6 +46,7 @@ export const claudeCodeProvider: AgentProvider = {
     `${process.env.HOME || ""}/.local/bin/claude`,
     "/usr/local/bin/claude",
     "/opt/homebrew/bin/claude",
+    ...(nvmClaudePath ? [nvmClaudePath] : []),
     "claude",
   ],
   buildInteractiveArgs() {

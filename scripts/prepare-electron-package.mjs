@@ -146,8 +146,9 @@ async function stageSeedContent() {
 
   // Default pages
   await Promise.all([
-    copyDirectory(path.join(dataDir, "cabinet-example"), path.join(stagedSeedDir, "cabinet-example")),
+    copyDirectory(path.join(dataDir, "example-cabinet-carousel-factory"), path.join(stagedSeedDir, "example-cabinet-carousel-factory")),
     copyDirectory(path.join(dataDir, "getting-started"), path.join(stagedSeedDir, "getting-started")),
+    copyFile(path.join(dataDir, "index.md"), path.join(stagedSeedDir, "index.md")),
     copyFile(path.join(dataDir, "CLAUDE.md"), path.join(stagedSeedDir, "CLAUDE.md")),
   ]);
 

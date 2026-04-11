@@ -127,11 +127,14 @@ function extractNativeModules() {
     fs.mkdirSync(externalModulesDir, { recursive: true });
     fs.cpSync(bundledNodePty, externalNodePty, { recursive: true });
 
-    // Ad-hoc codesign native binaries so macOS allows execution
+    // Remove quarantine flags and ad-hoc codesign native binaries so macOS allows execution
     const prebuildsDir = path.join(externalNodePty, "prebuilds", "darwin-arm64");
     for (const name of ["spawn-helper", "pty.node"]) {
       const target = path.join(prebuildsDir, name);
       if (fs.existsSync(target)) {
+        try {
+          execFileSync("xattr", ["-dr", "com.apple.quarantine", target]);
+        } catch {}
         try {
           execFileSync("codesign", ["--force", "--sign", "-", target]);
         } catch {}
@@ -170,43 +173,11 @@ function seedDefaultContent() {
   copyRecursive(seedDir, managedDataDir);
 }
 
-async function maybeImportExistingData() {
+function ensureManagedData() {
   fs.mkdirSync(managedDataDir, { recursive: true });
-  const visibleEntries = fs
-    .readdirSync(managedDataDir, { withFileTypes: true })
-    .filter((entry) => !entry.name.startsWith("."));
-
-  if (visibleEntries.length > 0) {
-    // Data directory has content — still seed hidden dirs (.agents/.library,
-    // .playbooks/catalog) in case a new app version ships new templates.
-    seedDefaultContent();
-    return;
-  }
-
-  const prompt = await dialog.showMessageBox({
-    type: "question",
-    buttons: ["Start fresh", "Import existing data", "Later"],
-    defaultId: 0,
-    cancelId: 2,
-    title: "Set up Cabinet data",
-    message: "Choose how this Electron app should initialize its managed data directory.",
-    detail:
-      "Cabinet stores desktop data outside the app bundle so updates never replace user content.",
-  });
-
-  if (prompt.response === 1) {
-    const selection = await dialog.showOpenDialog({
-      title: "Pick an existing Cabinet data directory",
-      properties: ["openDirectory"],
-    });
-
-    if (!selection.canceled && selection.filePaths.length > 0) {
-      fs.cpSync(selection.filePaths[0], managedDataDir, { recursive: true, force: true });
-    }
-  }
-
   // Seed default content (pages, agent library, playbooks).
-  // Non-destructive: never overwrites existing files.
+  // Non-destructive: never overwrites existing files, so user edits survive
+  // and new templates from app updates are added automatically.
   seedDefaultContent();
 }
 
@@ -217,7 +188,7 @@ async function startEmbeddedCabinet() {
     };
   }
 
-  await maybeImportExistingData();
+  ensureManagedData();
 
   const externalModulesDir = extractNativeModules();
   const [appPort, daemonPort] = await Promise.all([getFreePort(), getFreePort()]);

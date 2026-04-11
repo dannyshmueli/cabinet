@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Code2, Save, ExternalLink } from "lucide-react";
+import { Code2, Save, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { HeaderActions } from "@/components/layout/header-actions";
 
 interface CsvViewerProps {
   path: string;
@@ -155,7 +156,10 @@ export function CsvViewer({ path, title }: CsvViewerProps) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Toolbar */}
-      <div className="flex items-center justify-between border-b border-border px-4 py-2 bg-background/80 backdrop-blur-sm">
+      <div
+        className="flex items-center justify-between border-b border-border px-4 py-2 bg-background/80 backdrop-blur-sm transition-[padding] duration-200"
+        style={{ paddingLeft: `calc(1rem + var(--sidebar-toggle-offset, 0px))` }}
+      >
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-medium">{title}</span>
           <span className="text-xs text-muted-foreground/50 bg-muted px-1.5 py-0.5 rounded">
@@ -186,15 +190,14 @@ export function CsvViewer({ path, title }: CsvViewerProps) {
             <Code2 className="h-3 w-3" />
             {sourceMode ? "Table" : "Source"}
           </button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 gap-1.5 text-xs"
+          <button
             onClick={() => window.open(csvUrl, "_blank")}
+            className="inline-flex items-center justify-center rounded-md h-8 w-8 hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
+            title="Download CSV"
           >
-            <ExternalLink className="h-3.5 w-3.5" />
-            Download
-          </Button>
+            <Download className="h-4 w-4" />
+          </button>
+          <HeaderActions />
         </div>
       </div>
 

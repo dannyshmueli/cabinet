@@ -59,7 +59,7 @@ Here are some prompts that work well with Cabinet's AI editor:
 
 - **Be specific about location** — "Add X after the pricing section" works better than "Add X somewhere"
 - **Reference existing content** — "Update the table in the ingredients section" tells Claude exactly where to look
-- **Use @mentions liberally** — The more context Claude has, the better the edits. Mischief managed, as they say
+- **Use @mentions liberally** — The more context Claude has, the better the edits
 - **One task per message** — Complex multi-part edits work better as separate requests
 
 ## What the AI Panel Shows

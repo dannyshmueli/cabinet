@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ExternalLink, FileText, Files, PackageOpen, Sparkles, CheckCircle, XCircle, Clock } from "lucide-react";
 import type { ConversationDetail } from "@/types/conversations";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,20 @@ export function ConversationResultView({
   onOpenArtifact: (path: string) => void;
 }) {
   const transcriptUrl = `/agents/conversations/${detail.meta.id}`;
+  const promptText = detail.request || detail.meta.title;
+  const [promptHtml, setPromptHtml] = useState("");
+
+  useEffect(() => {
+    if (!promptText) return;
+    fetch("/api/ai/render-md", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markdown: promptText }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => setPromptHtml(data?.html || ""))
+      .catch(() => setPromptHtml(""));
+  }, [promptText]);
 
   return (
     <ScrollArea
@@ -43,13 +58,32 @@ export function ConversationResultView({
       <div className="mx-auto max-w-3xl space-y-5 p-6">
         {/* Prompt */}
         <section className="rounded-2xl border border-border bg-muted/10 p-5">
-          <div className="mb-2 flex items-center gap-2">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            <h4 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Prompt</h4>
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Prompt</h4>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => window.open(transcriptUrl, "_blank", "noopener,noreferrer")}
+            >
+              <Files className="h-3.5 w-3.5" />
+              Open transcript
+              <ExternalLink className="h-3 w-3" />
+            </Button>
           </div>
-          <p className="break-words text-[14px] leading-relaxed text-foreground">
-            {detail.request || detail.meta.title}
-          </p>
+          {promptHtml ? (
+            <div
+              className="max-h-48 overflow-y-auto overflow-x-hidden prose prose-sm prose-invert max-w-none prose-headings:font-semibold prose-headings:text-foreground prose-h1:text-base prose-h2:text-[13px] prose-h3:text-[12px] prose-p:text-[13px] prose-p:text-foreground/85 prose-li:text-[13px] prose-li:text-foreground/85 prose-a:text-foreground prose-code:text-[11px] prose-code:text-foreground prose-code:bg-background prose-code:px-1 prose-code:rounded prose-pre:bg-background prose-pre:border-0 prose-pre:text-foreground prose-strong:text-foreground"
+              dangerouslySetInnerHTML={{ __html: promptHtml }}
+            />
+          ) : (
+            <p className="max-h-48 overflow-y-auto overflow-x-hidden break-words text-[13px] leading-relaxed text-foreground/85">
+              {promptText}
+            </p>
+          )}
         </section>
 
         {/* Result */}

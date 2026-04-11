@@ -30,7 +30,7 @@ Each task card shows:
 - Assignee
 - Tags for categorization
 
-Drag cards between columns to update their status. It's as straightforward as moving parchment between piles on a desk — though considerably less likely to be set on fire by an errant Wildfire Whiz-Bang.
+Drag cards between columns to update their status.
 
 ## Agent Dashboard
 
@@ -59,20 +59,20 @@ The terminal server runs on port 3001 (started with `npm run dev:terminal` or `n
 Cabinet can run automated tasks on a schedule using cron syntax. Jobs are defined as YAML files in the `.jobs/` directory:
 
 ```yaml
-name: Morning Owl Briefing
+name: Morning Briefing
 schedule: "0 9 * * *"
-command: "Summarize overnight sales and flag any issues"
+command: "Summarize overnight activity and flag any issues"
 ```
 
-### Example Jobs in This Workspace
+### Example Jobs
 
-This joke shop workspace comes with three pre-configured jobs:
+You can configure jobs like:
 
 | Job | Schedule | What It Does |
 |-----|----------|--------------|
-| **Morning Owl Briefing** | Daily at 9:00 AM | Summarizes overnight activity, flags anything that needs attention — like a Daily Prophet for your shop, but with fewer editorials |
-| **Weekly Prank Safety Review** | Monday at 10:00 AM | Reviews prank product safety logs and compliance notes for the week |
-| **Inventory Stock Alert** | Every 6 hours | Checks inventory levels and alerts if any products are running low — because running out of Puking Pastilles mid-rush is no joke (well, it is, but not a good one) |
+| **Morning Briefing** | Daily at 9:00 AM | Summarizes overnight activity and flags anything that needs attention |
+| **Weekly Content Review** | Monday at 10:00 AM | Reviews content pipeline status and upcoming deadlines |
+| **Metrics Alert** | Every 6 hours | Checks KPIs and alerts if anything needs attention |
 
 Jobs run via `node-cron` on the server. Each execution is logged, and you can view results in the Jobs manager UI.
 
@@ -89,7 +89,7 @@ All without leaving Cabinet. All backed by files on disk. All versioned in Git.
 
 ## Try It
 
-Switch to the **Tasks** view in the header to see the current Kanban board. Browse the cards, drag one to a different column, and watch the YAML update on disk. Then check the **Jobs** tab to see the three scheduled jobs configured for this workspace.
+Switch to the **Tasks** view in the header to see the current Kanban board. Browse the cards, drag one to a different column, and watch the YAML update on disk. Then check the **Jobs** tab to see scheduled jobs.
 
 ---
 

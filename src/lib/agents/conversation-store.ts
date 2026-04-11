@@ -14,6 +14,7 @@ import {
   virtualPathFromFs,
 } from "../storage/path-utils";
 import {
+  deleteFileOrDir,
   ensureDirectory,
   fileExists,
   listDirectory,
@@ -22,6 +23,22 @@ import {
 } from "../storage/fs-operations";
 
 export const CONVERSATIONS_DIR = path.join(DATA_DIR, ".agents", ".conversations");
+
+// ── In-memory notification queue for completed/failed conversations ──
+export interface ConversationNotification {
+  id: string;
+  agentSlug: string;
+  title: string;
+  status: ConversationStatus;
+  summary?: string;
+  completedAt: string;
+}
+
+const notificationQueue: ConversationNotification[] = [];
+
+export function drainConversationNotifications(): ConversationNotification[] {
+  return notificationQueue.splice(0, notificationQueue.length);
+}
 
 interface CreateConversationInput {
   agentSlug: string;
@@ -768,6 +785,18 @@ export async function finalizeConversation(
     replaceConversationArtifacts(id, artifacts),
   ]);
 
+  // Push notification for terminal statuses
+  if (meta.status === "completed" || meta.status === "failed") {
+    notificationQueue.push({
+      id: meta.id,
+      agentSlug: meta.agentSlug,
+      title: meta.title,
+      status: meta.status,
+      summary: meta.summary,
+      completedAt: meta.completedAt || new Date().toISOString(),
+    });
+  }
+
   return meta;
 }
 
@@ -870,4 +899,11 @@ export async function getRunningConversationCounts(): Promise<Record<string, num
     acc[meta.agentSlug] = (acc[meta.agentSlug] || 0) + 1;
     return acc;
   }, {});
+}
+
+export async function deleteConversation(id: string): Promise<boolean> {
+  const dir = conversationDir(id);
+  if (!(await fileExists(metaPath(id)))) return false;
+  await deleteFileOrDir(dir);
+  return true;
 }

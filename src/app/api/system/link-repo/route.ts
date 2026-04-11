@@ -1,6 +1,5 @@
 import fs from "fs/promises";
 import path from "path";
-import matter from "gray-matter";
 import yaml from "js-yaml";
 import simpleGit from "simple-git";
 import { NextRequest, NextResponse } from "next/server";
@@ -11,21 +10,25 @@ import {
 import { ensureDirectory, fileExists, writeFileContent } from "@/lib/storage/fs-operations";
 import { autoCommit } from "@/lib/git/git-service";
 
+export const dynamic = "force-dynamic";
+
 interface LinkRepoRequest {
   localPath?: string;
   name?: string;
   remote?: string;
   description?: string;
+  parentPath?: string;
 }
 
 async function detectGitMetadata(localPath: string): Promise<{
+  isRepo: boolean;
   branch?: string;
   remote?: string;
 }> {
   try {
     const git = simpleGit(localPath);
     const isRepo = await git.checkIsRepo();
-    if (!isRepo) return {};
+    if (!isRepo) return { isRepo: false };
 
     const branchSummary = await git.branchLocal();
     const remotes = await git.getRemotes(true);
@@ -33,6 +36,7 @@ async function detectGitMetadata(localPath: string): Promise<{
       remotes.find((remote) => remote.name === "origin") || remotes[0];
 
     return {
+      isRepo: true,
       branch: branchSummary.current || undefined,
       remote:
         preferredRemote?.refs.push ||
@@ -40,51 +44,15 @@ async function detectGitMetadata(localPath: string): Promise<{
         undefined,
     };
   } catch {
-    return {};
+    return { isRepo: false };
   }
 }
 
-function buildIndexContent({
-  name,
-  localPath,
-  remote,
-  branch,
-  source,
-  description,
-}: {
-  name: string;
-  localPath: string;
-  remote?: string;
-  branch: string;
-  source: "local" | "both";
-  description?: string;
-}) {
-  const frontmatter = {
-    title: name,
-    created: new Date().toISOString(),
-    modified: new Date().toISOString(),
-    tags: ["repo"],
-  };
-
-  const lines = [
-    `# ${name}`,
-    "",
-    description || "This KB folder links to an external code repository.",
-    "",
-    `- Local path: \`${localPath}\``,
-    remote ? `- Remote: \`${remote}\`` : "- Remote: not detected",
-    `- Branch: \`${branch}\``,
-    `- Source: \`${source}\``,
-    "",
-    "Cabinet also created a visible `source` symlink in this folder for local access.",
-    "Edit `.repo.yaml` if you want to customize the linked repository metadata.",
-  ];
-
-  return matter.stringify(`\n${lines.join("\n")}\n`, frontmatter);
-}
-
 export async function POST(req: NextRequest) {
+  let symlinkCreated = false;
   let targetDir = "";
+  let localPath = "";
+  const writtenFiles: string[] = [];
 
   try {
     const body = (await req.json()) as LinkRepoRequest;
@@ -96,7 +64,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const localPath = path.resolve(localPathInput);
+    localPath = path.resolve(localPathInput);
     const stat = await fs.stat(localPath).catch(() => null);
     if (!stat || !stat.isDirectory()) {
       return NextResponse.json(
@@ -114,67 +82,100 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    targetDir = resolveContentPath(folderName);
-    if (await fileExists(targetDir)) {
+    const parentPath = body.parentPath?.trim() || "";
+    const relativePath = parentPath ? `${parentPath}/${folderName}` : folderName;
+    targetDir = resolveContentPath(relativePath);
+
+    // Use lstat to detect both real entries and symlinks (including broken ones)
+    const existing = await fs.lstat(targetDir).catch(() => null);
+    if (existing) {
       return NextResponse.json(
         { error: `A Knowledge Base folder named "${folderName}" already exists.` },
         { status: 409 }
       );
     }
 
+    // If parentPath points to a standalone .md file, promote it to a directory
+    if (parentPath) {
+      const parentDir = resolveContentPath(parentPath);
+      const parentMdFile = `${parentDir}.md`;
+      const parentDirExists = await fileExists(parentDir);
+      const parentMdExists = !parentDirExists && await fileExists(parentMdFile);
+      if (parentMdExists) {
+        await fs.mkdir(parentDir, { recursive: true });
+        await fs.rename(parentMdFile, path.join(parentDir, "index.md"));
+      }
+    }
+
+    // Ensure parent directory exists for the symlink
+    await ensureDirectory(path.dirname(targetDir));
+
     const detected = await detectGitMetadata(localPath);
+    const isRepo = detected.isRepo || !!body.remote?.trim();
     const branch = detected.branch || "main";
     const remote = body.remote?.trim() || detected.remote;
     const source = remote ? "both" : "local";
     const description = body.description?.trim() || undefined;
 
-    await ensureDirectory(targetDir);
-
-    const indexPath = path.join(targetDir, "index.md");
-    const repoYamlPath = path.join(targetDir, ".repo.yaml");
-    const symlinkPath = path.join(targetDir, "source");
-
-    const repoConfig = {
-      name: derivedName,
-      local: localPath,
-      ...(remote ? { remote } : {}),
-      source,
-      branch,
+    // Write .cabinet.yaml into the target directory
+    const cabinetYamlPath = path.join(localPath, ".cabinet.yaml");
+    const cabinetMeta = {
+      title: derivedName,
+      tags: isRepo ? ["repo"] : ["knowledge"],
+      created: new Date().toISOString(),
       ...(description ? { description } : {}),
     };
-
     await writeFileContent(
-      indexPath,
-      buildIndexContent({
-        name: derivedName,
-        localPath,
-        remote,
-        branch,
-        source,
-        description,
-      })
+      cabinetYamlPath,
+      yaml.dump(cabinetMeta, { lineWidth: -1, noRefs: true })
     );
+    writtenFiles.push(cabinetYamlPath);
 
-    await writeFileContent(
-      repoYamlPath,
-      yaml.dump(repoConfig, { lineWidth: -1, noRefs: true })
-    );
+    // Write .repo.yaml into the target directory (for git repos, skip if already exists)
+    let warning: string | undefined;
+    if (isRepo) {
+      const repoYamlPath = path.join(localPath, ".repo.yaml");
+      if (await fileExists(repoYamlPath)) {
+        warning = ".repo.yaml already exists in the target directory — skipped writing.";
+      } else {
+        const repoConfig = {
+          name: derivedName,
+          local: localPath,
+          ...(remote ? { remote } : {}),
+          source,
+          branch,
+          ...(description ? { description } : {}),
+        };
+        await writeFileContent(
+          repoYamlPath,
+          yaml.dump(repoConfig, { lineWidth: -1, noRefs: true })
+        );
+        writtenFiles.push(repoYamlPath);
+      }
+    }
 
+    // Create direct symlink: data/my-project -> /external/path
     await fs.symlink(
       localPath,
-      symlinkPath,
+      targetDir,
       process.platform === "win32" ? "junction" : "dir"
     );
+    symlinkCreated = true;
 
-    autoCommit(folderName, "Add");
+    autoCommit(relativePath, "Add");
 
     return NextResponse.json({
       ok: true,
-      path: folderName,
+      path: relativePath,
+      ...(warning ? { warning } : {}),
     });
   } catch (error) {
-    if (targetDir) {
-      await fs.rm(targetDir, { recursive: true, force: true }).catch(() => {});
+    // Clean up on failure: remove symlink and written dotfiles
+    if (symlinkCreated && targetDir) {
+      await fs.unlink(targetDir).catch(() => {});
+    }
+    for (const f of writtenFiles) {
+      await fs.unlink(f).catch(() => {});
     }
 
     const message = error instanceof Error ? error.message : "Unknown error";

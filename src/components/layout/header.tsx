@@ -1,7 +1,6 @@
 "use client";
 
-import { Sparkles, Copy, Download, Search, FileCode, Terminal, FileDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Copy, Download, FileCode, FileDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,16 +8,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useEditorStore } from "@/stores/editor-store";
-import { useAIPanelStore } from "@/stores/ai-panel-store";
-import { useAppStore } from "@/stores/app-store";
 import { VersionHistory } from "@/components/editor/version-history";
-import { ThemePicker } from "@/components/layout/theme-picker";
-import { cn } from "@/lib/utils";
+import { HeaderActions } from "@/components/layout/header-actions";
 
 export function Header() {
   const { frontmatter, content, currentPath } = useEditorStore();
-  const { isOpen, toggle } = useAIPanelStore();
-  const { terminalOpen, toggleTerminal } = useAppStore();
 
   const handleCopyMarkdown = async () => {
     if (!content) return;
@@ -50,30 +44,16 @@ export function Header() {
   };
 
   return (
-    <header className="flex items-center justify-between border-b border-border px-4 py-2 bg-background/80 backdrop-blur-sm">
+    <header
+      className="flex items-center justify-between border-b border-border px-4 py-2 bg-background/80 backdrop-blur-sm transition-[padding] duration-200"
+      style={{ paddingLeft: `calc(1rem + var(--sidebar-toggle-offset, 0px))` }}
+    >
       <div className="flex items-center gap-2">
         <h1 className="text-[13px] font-medium text-foreground truncate tracking-[-0.01em]">
           {frontmatter?.title || "Cabinet"}
         </h1>
       </div>
       <div className="flex items-center gap-1">
-        {/* Search hint */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1.5 text-xs text-muted-foreground/60 hover:text-muted-foreground hidden sm:flex"
-          onClick={() => {
-            window.dispatchEvent(
-              new KeyboardEvent("keydown", { key: "k", metaKey: true })
-            );
-          }}
-        >
-          <Search className="h-3.5 w-3.5" />
-          <kbd className="pointer-events-none text-[10px] font-mono bg-muted px-1 py-0.5 rounded">
-            ⌘K
-          </kbd>
-        </Button>
-
         {/* Export dropdown */}
         {currentPath && (
           <DropdownMenu>
@@ -96,16 +76,18 @@ export function Header() {
               <DropdownMenuItem onClick={async () => {
                 const editorEl = document.querySelector(".tiptap");
                 if (!editorEl) return;
-                const html2canvas = (await import("html2canvas")).default;
+                const { toPng } = await import("html-to-image");
                 const { jsPDF } = await import("jspdf");
-                const canvas = await html2canvas(editorEl as HTMLElement, {
+                const imgData = await toPng(editorEl as HTMLElement, {
                   backgroundColor: "#ffffff",
-                  scale: 2,
+                  pixelRatio: 2,
                 });
-                const imgData = canvas.toDataURL("image/png");
+                const img = new Image();
+                img.src = imgData;
+                await new Promise((resolve) => { img.onload = resolve; });
                 const pdf = new jsPDF("p", "mm", "a4");
                 const pdfWidth = pdf.internal.pageSize.getWidth();
-                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                const pdfHeight = (img.height * pdfWidth) / img.width;
                 pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
                 pdf.save(`${frontmatter?.title || "page"}.pdf`);
               }}>
@@ -119,28 +101,8 @@ export function Header() {
         {/* Version history */}
         {currentPath && <VersionHistory />}
 
-        {/* Terminal toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn("h-8 w-8", terminalOpen && "text-primary")}
-          onClick={toggleTerminal}
-        >
-          <Terminal className="h-4 w-4" />
-        </Button>
-
-        {/* AI toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn("h-8 w-8", isOpen && "text-primary")}
-          onClick={toggle}
-        >
-          <Sparkles className="h-4 w-4" />
-        </Button>
-
-        {/* Theme picker — click to toggle, long-press for menu */}
-        <ThemePicker />
+        {/* Global actions: Search, Terminal, AI, Theme */}
+        <HeaderActions />
       </div>
     </header>
   );

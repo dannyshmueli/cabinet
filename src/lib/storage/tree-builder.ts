@@ -1,9 +1,48 @@
 import fs from "fs/promises";
 import path from "path";
 import matter from "gray-matter";
+import yaml from "js-yaml";
 import type { TreeNode } from "@/types";
 import { DATA_DIR, virtualPathFromFs, isHiddenEntry } from "./path-utils";
 import { listDirectory, readFileContent, fileExists } from "./fs-operations";
+
+const CODE_EXTENSIONS = new Set([
+  // Notes and plain text
+  ".txt", ".text", ".log", ".mdx", ".rst",
+  // Web and app code
+  ".js", ".cjs", ".mjs", ".ts", ".tsx", ".jsx", ".css", ".scss", ".html",
+  // Mobile and native code
+  ".swift", ".kt", ".kts", ".java", ".go", ".rs", ".c", ".cpp", ".h",
+  // Backend and scripting
+  ".py", ".rb", ".php", ".sh", ".bash", ".zsh", ".ps1",
+  // Config and structured text
+  ".json", ".jsonc", ".yaml", ".yml", ".toml", ".ini", ".env", ".xml",
+  // Query and schema files
+  ".sql", ".graphql", ".gql", ".prisma",
+]);
+
+const IMAGE_EXTENSIONS = new Set([
+  ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif", ".ico",
+]);
+
+const VIDEO_EXTENSIONS = new Set([
+  ".mp4", ".webm", ".mov", ".m4v",
+]);
+
+const AUDIO_EXTENSIONS = new Set([
+  ".mp3", ".wav", ".ogg", ".m4a", ".aac",
+]);
+
+const MERMAID_EXTENSIONS = new Set([".mermaid", ".mmd"]);
+
+function classifyFile(ext: string): TreeNode["type"] | null {
+  if (CODE_EXTENSIONS.has(ext)) return "code";
+  if (IMAGE_EXTENSIONS.has(ext)) return "image";
+  if (VIDEO_EXTENSIONS.has(ext)) return "video";
+  if (AUDIO_EXTENSIONS.has(ext)) return "audio";
+  if (MERMAID_EXTENSIONS.has(ext)) return "mermaid";
+  return null;
+}
 
 async function readFrontmatter(
   filePath: string
@@ -12,6 +51,20 @@ async function readFrontmatter(
     const raw = await readFileContent(filePath);
     const { data } = matter(raw);
     return data;
+  } catch {
+    return {};
+  }
+}
+
+async function readCabinetMeta(
+  dirPath: string
+): Promise<Record<string, unknown>> {
+  try {
+    const raw = await readFileContent(path.join(dirPath, ".cabinet.yaml"));
+    const parsed = yaml.load(raw);
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
     return {};
   }
@@ -38,6 +91,13 @@ async function buildTreeRecursive(
   const entries = await listDirectory(dirPath);
   const nodes: TreeNode[] = [];
 
+  // Collect directory names so we can skip standalone .md files that collide.
+  const dirNames = new Set(
+    entries
+      .filter((e) => e.isDirectory && !isHiddenEntry(e.name))
+      .map((e) => e.name)
+  );
+
   for (const entry of entries) {
     if (isHiddenEntry(entry.name)) continue;
     if (entry.name === "CLAUDE.md") continue;
@@ -53,6 +113,7 @@ async function buildTreeRecursive(
 
       const repoYaml = path.join(fullPath, ".repo.yaml");
       const hasRepo = await fileExists(repoYaml);
+      const isLinked = entry.isSymlink || undefined;
 
       // Website or App: has index.html but no index.md
       if (hasIndexHtml && !hasIndexMd) {
@@ -63,6 +124,7 @@ async function buildTreeRecursive(
           path: vPath,
           type: isApp ? "app" : "website",
           hasRepo: hasRepo || undefined,
+          isLinked,
           frontmatter: {
             title: entry.name,
           },
@@ -70,7 +132,13 @@ async function buildTreeRecursive(
         continue;
       }
 
-      const fm = hasIndexMd ? await readFrontmatter(indexMd) : {};
+      // Resolve metadata: prefer index.md frontmatter, fall back to .cabinet.yaml
+      let fm: Record<string, unknown> = {};
+      if (hasIndexMd) {
+        fm = await readFrontmatter(indexMd);
+      } else if (isLinked) {
+        fm = await readCabinetMeta(fullPath);
+      }
       const children = await buildTreeRecursive(fullPath, nextAncestorRealPaths);
 
       nodes.push({
@@ -78,6 +146,7 @@ async function buildTreeRecursive(
         path: vPath,
         type: "directory",
         hasRepo: hasRepo || undefined,
+        isLinked,
         frontmatter: {
           title: (fm.title as string) || entry.name,
           icon: fm.icon as string | undefined,
@@ -103,7 +172,38 @@ async function buildTreeRecursive(
           title: entry.name.replace(/\.csv$/i, ""),
         },
       });
-    } else if (entry.name.endsWith(".md") && entry.name !== "index.md") {
+    } else {
+      const ext = path.extname(entry.name).toLowerCase();
+      const fileType = classifyFile(ext);
+      if (fileType) {
+        nodes.push({
+          name: entry.name,
+          path: vPath,
+          type: fileType,
+          frontmatter: {
+            title: entry.name.replace(new RegExp(`\\${ext}$`, "i"), ""),
+          },
+        });
+        continue;
+      }
+
+      // Unrecognized file — show with generic fallback
+      if (!entry.name.endsWith(".md")) {
+        nodes.push({
+          name: entry.name,
+          path: vPath,
+          type: "unknown",
+          frontmatter: { title: entry.name },
+        });
+        continue;
+      }
+    }
+
+    if (entry.name.endsWith(".md") && entry.name !== "index.md") {
+      // Skip standalone .md if a same-named directory exists (avoids duplicate keys).
+      const baseName = entry.name.replace(/\.md$/, "");
+      if (dirNames.has(baseName)) continue;
+
       const fm = await readFrontmatter(fullPath);
       nodes.push({
         name: entry.name,

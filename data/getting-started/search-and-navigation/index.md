@@ -22,7 +22,7 @@ Press **Cmd+K** (or **Ctrl+K** on Linux) to open the search dialog. This is the 
 - **Keyboard navigation** — Use arrow keys to move through results, Enter to open
 - **Fuzzy matching** — Close-enough spelling still finds what you're looking for
 
-The search indexes everything under your data directory, including page content, titles, and frontmatter tags. It's fast even with hundreds of pages — no external search server required, no Floo Powder needed.
+The search indexes everything under your data directory, including page content, titles, and frontmatter tags. It's fast even with hundreds of pages — no external search server required.
 
 ## Wiki-Links
 
@@ -64,7 +64,7 @@ New pages start with basic frontmatter (title, created date) and an empty body. 
 
 ## Page Icons
 
-Pages can have custom icons set via the `icon` field in frontmatter. These show up in the sidebar tree and make scanning the page list much faster. The shop workspace uses product emojis to keep things visually organized — a small touch that makes a big difference when you have dozens of pages.
+Pages can have custom icons set via the `icon` field in frontmatter. These show up in the sidebar tree and make scanning the page list much faster — a small touch that makes a big difference when you have dozens of pages.
 
 ## Image Upload
 
@@ -77,7 +77,7 @@ Images are uploaded to the page's directory on disk, keeping assets co-located w
 
 ## Try It
 
-Press **Cmd+K** and search for "Moonbeam" — it finds [[Moonbeam Meltdrops]] instantly. Then try clicking a wiki-link in any page to jump between related content. The whole workspace is connected.
+Press **Cmd+K** and search for "carousel" — it finds pages from the example workspace instantly. Then try clicking a wiki-link in any page to jump between related content. The whole workspace is connected.
 
 ---
 

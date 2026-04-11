@@ -13,7 +13,7 @@ order: 4
 
 Every page in Cabinet is backed by Git. Every save creates a commit. Every commit is browsable. Every version is restorable. You never have to worry about losing work — the history goes back to the very first edit, and nothing is ever truly deleted.
 
-This is especially important when working with the AI editor. If Claude makes an edit you don't like, or accidentally changes more than you intended, you can restore the previous version in seconds. No damage is permanent. It's like having a Time-Turner for your documents, except this one doesn't require Ministry approval.
+This is especially important when working with the AI editor. If Claude makes an edit you don't like, or accidentally changes more than you intended, you can restore the previous version in seconds. No damage is permanent.
 
 ## How Auto-Save Works
 
@@ -68,7 +68,7 @@ The restore itself is a new commit, so you never lose the in-between history. Yo
 
 ## Try It
 
-Edit [[Joke Book]] — add a line, delete a paragraph, change a heading. Then click the clock icon in the toolbar to open Version History. You'll see your changes in the diff viewer, and you can restore the original with one click.
+Open any page and try editing — add a line, delete a paragraph, change a heading. Then click the clock icon in the toolbar to open Version History. You'll see your changes in the diff viewer, and you can restore the original with one click.
 
 ---
 

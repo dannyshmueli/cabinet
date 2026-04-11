@@ -1,3 +1,4 @@
+import fs from "fs";
 import os from "os";
 import path from "path";
 
@@ -41,12 +42,34 @@ export function isElectronRuntime(): boolean {
   return getCabinetRuntime() === "electron";
 }
 
+/** Path to the project-root config file that persists settings like dataDir. */
+export const INSTALL_CONFIG_PATH = path.join(PROJECT_ROOT, ".cabinet-install.json");
+
+function readPersistedDataDir(): string | null {
+  try {
+    const raw = fs.readFileSync(INSTALL_CONFIG_PATH, "utf-8");
+    const json = JSON.parse(raw);
+    const dir = json?.dataDir?.trim();
+    return dir || null;
+  } catch {
+    return null;
+  }
+}
+
 export function getManagedDataDir(): string {
+  // 1. Env var takes highest priority
   const configured = process.env.CABINET_DATA_DIR?.trim();
   if (configured) {
     return path.resolve(configured);
   }
 
+  // 2. Persisted config file
+  const persisted = readPersistedDataDir();
+  if (persisted) {
+    return path.resolve(persisted);
+  }
+
+  // 3. Platform defaults
   if (isElectronRuntime()) {
     return defaultElectronDataDir();
   }

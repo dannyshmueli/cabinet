@@ -31,11 +31,14 @@
   <a href="https://github.com/hilash/cabinet/stargazers" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/github/stars/hilash/cabinet?style=for-the-badge&logo=github&logoColor=white&label=Star%20the%20vision%20%F0%9F%98%8D%F0%9F%8C%9F&labelColor=4b4b4b&color=f5b301" alt="Star Cabinet on GitHub" valign="middle">
   </a>&nbsp;
-  <a href="https://discord.gg/rxd8BYnN" target="_blank" rel="noopener noreferrer">
+  <a href="https://discord.gg/hJa5TRTbTH" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?style=for-the-badge&logo=discord&logoColor=white&labelColor=4b4b4b" alt="Join the Discord" valign="middle">
   </a>&nbsp;
   <a href="https://runcabinet.com/waitlist" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/badge/%F0%9F%97%84%EF%B8%8F%20Cabinet-Cloud%20Waitlist-55c938?style=for-the-badge&labelColor=4b4b4b" alt="Cabinet Cloud Waitlist" valign="middle">
+  </a>&nbsp;
+  <a href="https://coderabbit.ai" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/coderabbit/prs/github/hilash/cabinet?utm_source=oss&utm_medium=github&utm_campaign=hilash%2Fcabinet&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews" alt="CodeRabbit Pull Request Reviews" valign="middle">
   </a>
 </p>
 
@@ -211,7 +214,7 @@ See [CHANGELOG.md](CHANGELOG.md) for breaking changes, or follow the full releas
 
 ## Community
 
-Questions, ideas, feedback, screenshots, wild experiments — bring them to the [Discord](https://discord.gg/rxd8BYnN). That’s where the Cabinet community hangs out and where a lot of the product direction gets shaped in real time.
+Questions, ideas, feedback, screenshots, wild experiments — bring them to the [Discord](https://discord.gg/hJa5TRTbTH). That’s where the Cabinet community hangs out and where a lot of the product direction gets shaped in real time.
 
 ---
 
@@ -219,7 +222,7 @@ Questions, ideas, feedback, screenshots, wild experiments — bring them to the 
 
 Cabinet is moving fast right now. We’d love thoughtful contributors who want to help shape it early.
 
-If you’re thinking about opening a PR, please start by joining the [Discord](https://discord.gg/rxd8BYnN) and talking with Hila before coding. Hila is Cabinet’s builder, and that early sync helps us keep the roadmap coherent while the product is still evolving rapidly.
+If you’re thinking about opening a PR, please start by joining the [Discord](https://discord.gg/hJa5TRTbTH) and talking with Hila before coding. Hila is Cabinet’s builder, and that early sync helps us keep the roadmap coherent while the product is still evolving rapidly.
 
 Once the direction is aligned, open your PR on [GitHub](https://github.com/hilash/cabinet). The goal is not gatekeeping — it’s making sure your energy goes into work that has a clear path to landing and shipping.
 

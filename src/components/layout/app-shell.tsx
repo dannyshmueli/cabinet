@@ -7,6 +7,12 @@ import { KBEditor } from "@/components/editor/editor";
 import { WebsiteViewer } from "@/components/editor/website-viewer";
 import { PdfViewer } from "@/components/editor/pdf-viewer";
 import { CsvViewer } from "@/components/editor/csv-viewer";
+import { SourceViewer } from "@/components/editor/source-viewer";
+import { ImageViewer } from "@/components/editor/image-viewer";
+import { MediaViewer } from "@/components/editor/media-viewer";
+import { MermaidViewer } from "@/components/editor/mermaid-viewer";
+import { FileFallbackViewer } from "@/components/editor/file-fallback-viewer";
+import { HomeScreen } from "@/components/home/home-screen";
 import { AgentsWorkspace } from "@/components/agents/agents-workspace";
 import { JobsManager } from "@/components/jobs/jobs-manager";
 import { SettingsPage } from "@/components/settings/settings-page";
@@ -17,7 +23,9 @@ import { KeyboardShortcuts } from "@/components/shortcuts/keyboard-shortcuts";
 import { StatusBar } from "@/components/layout/status-bar";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 import { UpdateDialog } from "@/components/layout/update-dialog";
+import { NotificationToasts } from "@/components/layout/notification-toasts";
 import { useCabinetUpdate } from "@/hooks/use-cabinet-update";
+import { useHashRoute } from "@/hooks/use-hash-route";
 import { useTreeStore } from "@/stores/tree-store";
 import { useAppStore } from "@/stores/app-store";
 import type { TreeNode } from "@/types";
@@ -42,6 +50,7 @@ export function AppShell() {
   const section = useAppStore((s) => s.section);
   const setSection = useAppStore((s) => s.setSection);
   const terminalOpen = useAppStore((s) => s.terminalOpen);
+  const sidebarCollapsed = useAppStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
   const setAiPanelCollapsed = useAppStore((s) => s.setAiPanelCollapsed);
   const aiPanelCollapsed = useAppStore((s) => s.aiPanelCollapsed);
@@ -57,6 +66,9 @@ export function AppShell() {
     openDataDir,
     applyUpdate,
   } = useCabinetUpdate({ autoRefresh: true });
+
+  // Sync navigation state with URL hash + localStorage
+  useHashRoute();
 
   // Onboarding wizard state
   const [showWizard, setShowWizard] = useState<boolean | null>(null);
@@ -80,6 +92,14 @@ export function AppShell() {
     try {
       es = new EventSource("/api/agents/events");
       es.addEventListener("tree_changed", () => loadTree());
+      es.addEventListener("conversation_completed", (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          window.dispatchEvent(
+            new CustomEvent("cabinet:conversation-completed", { detail: data })
+          );
+        } catch { /* ignore */ }
+      });
     } catch {
       // SSE not supported
     }
@@ -96,7 +116,7 @@ export function AppShell() {
 
   const handleWizardComplete = useCallback(() => {
     setShowWizard(false);
-    setSection({ type: "agents" });
+    setSection({ type: "home" });
     loadTree();
   }, [setSection, loadTree]);
 
@@ -120,10 +140,17 @@ export function AppShell() {
     : selectedPath.endsWith(".pdf") ? "pdf"
     : null
     : null;
-  const isWebsite = selectedNode?.type === "website";
-  const isApp = selectedNode?.type === "app";
-  const isPdf = selectedNode?.type === "pdf" || inferredType === "pdf";
-  const isCsv = selectedNode?.type === "csv" || inferredType === "csv";
+  const nodeType = selectedNode?.type || inferredType;
+  const isWebsite = nodeType === "website";
+  const isApp = nodeType === "app";
+  const isPdf = nodeType === "pdf";
+  const isCsv = nodeType === "csv";
+  const isCode = nodeType === "code";
+  const isImage = nodeType === "image";
+  const isVideo = nodeType === "video";
+  const isAudio = nodeType === "audio";
+  const isMermaid = nodeType === "mermaid";
+  const isUnknown = nodeType === "unknown";
   const hasPersistentUpdateState =
     update?.updateStatus.state === "restart-required" ||
     update?.updateStatus.state === "failed" ||
@@ -156,6 +183,7 @@ export function AppShell() {
   // Determine what to render in the main area
   const renderContent = () => {
     // System sections (non-page views)
+    if (section.type === "home") return <HomeScreen />;
     if (section.type === "settings") return <SettingsPage />;
     if (section.type === "agents") {
       return <AgentsWorkspace selectedScope="all" selectedAgentSlug={null} />;
@@ -209,6 +237,33 @@ export function AppShell() {
         />
       );
     }
+    if (isCode && (selectedNode || selectedPath)) {
+      const codePath = selectedNode?.path || selectedPath!;
+      const codeTitle = selectedNode?.frontmatter?.title || selectedNode?.name || codePath.split("/").pop() || "Source";
+      return <SourceViewer path={codePath} title={codeTitle} />;
+    }
+    if (isImage && (selectedNode || selectedPath)) {
+      const imgPath = selectedNode?.path || selectedPath!;
+      const imgTitle = selectedNode?.frontmatter?.title || selectedNode?.name || imgPath.split("/").pop() || "Image";
+      return <ImageViewer path={imgPath} title={imgTitle} />;
+    }
+    if ((isVideo || isAudio) && (selectedNode || selectedPath)) {
+      const mediaPath = selectedNode?.path || selectedPath!;
+      const mediaTitle = selectedNode?.frontmatter?.title || selectedNode?.name || mediaPath.split("/").pop() || "Media";
+      return <MediaViewer path={mediaPath} title={mediaTitle} type={isVideo ? "video" : "audio"} />;
+    }
+
+    if (isMermaid && (selectedNode || selectedPath)) {
+      const mmdPath = selectedNode?.path || selectedPath!;
+      const mmdTitle = selectedNode?.frontmatter?.title || selectedNode?.name || mmdPath.split("/").pop() || "Diagram";
+      return <MermaidViewer path={mmdPath} title={mmdTitle} />;
+    }
+
+    if (isUnknown && (selectedNode || selectedPath)) {
+      const unkPath = selectedNode?.path || selectedPath!;
+      const unkTitle = selectedNode?.frontmatter?.title || selectedNode?.name || unkPath.split("/").pop() || "File";
+      return <FileFallbackViewer path={unkPath} title={unkTitle} />;
+    }
 
     // Default: editor
     return (
@@ -232,7 +287,10 @@ export function AppShell() {
   return (
     <div className="flex h-screen bg-background text-foreground">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div
+        className="flex-1 flex flex-col overflow-hidden"
+        style={{ '--sidebar-toggle-offset': sidebarCollapsed ? '2.25rem' : '0px' } as React.CSSProperties}
+      >
         <main className="flex-1 flex flex-col overflow-hidden">
           {renderContent()}
         </main>
@@ -267,6 +325,7 @@ export function AppShell() {
         onOpenDataDir={openDataDir}
         onLater={handleUpdateLater}
       />
+      <NotificationToasts />
     </div>
   );
 }
